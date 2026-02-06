@@ -1,9 +1,8 @@
 import pdfplumber
-
-from normalize import normalize
-from merge import merge_pages
-from chunking import build_chunks
-from storage import save_json
+from pdf_pipeline import normalize as nr
+from pdf_pipeline.merge import merge_pages
+from pdf_pipeline.chunking import build_chunks
+from pdf_pipeline.storage import save_json
 
 pdf_path = "data.pdf"
 
@@ -13,7 +12,7 @@ def extract_pages(pdf_path):
 
     with pdfplumber.open(pdf_path) as pdf:
         for i, page in enumerate(pdf.pages):
-            text = normalize(page.extract_text())
+            text = nr.normalize(page.extract_text())
             pages.append({
                 "page": i + 1,
                 "content": text
@@ -46,5 +45,5 @@ def main():
 
     save_json(output, "output/parsed_output.json")
 
-if __name__ == "__main__":
-    main()
+
+   
