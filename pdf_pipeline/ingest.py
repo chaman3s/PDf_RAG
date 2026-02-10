@@ -1,9 +1,9 @@
 import pdfplumber
 
-from normalize import normalize
-from merge import merge_pages
-from chunking import build_chunks
-from storage import save_json
+from .normalize import normalize
+from .merge import merge_pages
+from .chunking import build_chunks
+from .storage import save_json
 
 pdf_path = "data.pdf"
 
@@ -21,7 +21,13 @@ def extract_pages(pdf_path):
 
     return pages
 
-
+def get_pdf_chunks(pdf_path):
+    pages = extract_pages(pdf_path)
+    merged_text = merge_pages(pages)
+    paragraphs = [p for p in merged_text.split("\n\n") if p.strip()]
+    chunks = build_chunks(paragraphs)
+    return chunks
+    
 def main():
     pages = extract_pages(pdf_path)
 
