@@ -1,56 +1,61 @@
 import pdfplumber
-
-from .normalize import normalize
-from .merge import merge_pages
+import re
+from .normalize import normalize # Assuming this handles unicode normalization
 from .chunking import build_chunks
-from .storage import save_json
 
-pdf_path = "data.pdf"
-
-
-def extract_pages(pdf_path):
-    pages = []
-
+def extract_clean_paragraphs(pdf_path):
+    """
+    Extracts text page-by-page and yields cleaned paragraphs.
+    Handles the common PDF issue where sentences are broken by newlines.
+    """
+    cleaned_paragraphs = []
+    
     with pdfplumber.open(pdf_path) as pdf:
         for i, page in enumerate(pdf.pages):
-            text = normalize(page.extract_text())
-            pages.append({
-                "page": i + 1,
-                "content": text
-            })
+            # 1. Safety check for blank/image-only pages
+            raw_text = page.extract_text()
+            if not raw_text:
+                continue
 
-    return pages
+            # 2. visual-chunk extraction (simple heuristic)
+            # We split by double newlines to find "blocks" of text
+            raw_blocks = raw_text.split('\n\n')
+            
+            for block in raw_blocks:
+                block = block.strip()
+                if not block:
+                    continue
+                
+                # 3. Heal line breaks within a paragraph
+                # Replaces single newlines with space, but keeps the block together
+                # This fixes: "This is a sentence\nthat was split." -> "This is a sentence that was split."
+                cleaned_text = block.replace('\n', ' ')
+                
+                # Optional: Remove excess whitespace created by the join
+                cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+                
+                # 4. Apply your custom normalization (unicode, etc)
+                if 'normalize' in globals():
+                    cleaned_text = normalize(cleaned_text)
+
+                cleaned_paragraphs.append({
+                    "text": cleaned_text,
+                    "page": i + 1
+                })
+                
+    return cleaned_paragraphs
 
 def get_pdf_chunks(pdf_path):
-    pages = extract_pages(pdf_path)
-    merged_text = merge_pages(pages)
-    paragraphs = [p for p in merged_text.split("\n\n") if p.strip()]
-    chunks = build_chunks(paragraphs)
-    return chunks
+    """
+    Orchestrates the extraction and chunking pipeline.
+    """
+    # 1. Extract clean, page-aware paragraphs
+    paragraphs_data = extract_clean_paragraphs(pdf_path)
     
-def main():
-    pages = extract_pages(pdf_path)
-
-    merged_text = merge_pages(pages)
-
-    paragraphs = [p for p in merged_text.split("\n\n") if p.strip()]
-
-    chunks = build_chunks(paragraphs)
-
-    print("Total chunks:", len(chunks))
-    print(chunks[0][:500])
-    output = {
-        "pdf": pdf_path,
-        "page_count": len(pages),
-        "raw_pages": pages,
-        "cleaned_pages": pages,
-        "chunks": [
-            {"chunk_id": i + 1, "content": chunk}
-            for i, chunk in enumerate(chunks)
-        ]
-    }
-
-    save_json(output, "output/parsed_output.json")
-
-if __name__ == "__main__":
-    main()
+    # 2. Chunk them using the token-aware semantic chunker
+    # Note: build_chunks returns a list of dicts: 
+    # [{'content': '...', 'metadata': [...], 'token_count': 123}, ...]
+    chunks = build_chunks(paragraphs_data)
+    
+    # 3. Return directly. Do not re-format or re-count tokens.
+    return chunks

@@ -1,11 +1,16 @@
 def merge_pages(structured_pages):
+    """
+    Merges pages into a single string. 
+    WARNING: usage of this function discards page-level metadata.
+    """
     corpus_parts = []
 
     for page in structured_pages:
-        if not page["content"]:
+        # Check for None or empty strings
+        if not page.get("content"):
             continue
 
-        separator = f"\n\n--- PAGE {page['page']} ---\n\n"
-        corpus_parts.append(separator + page["content"])
+        corpus_parts.append(page["content"])
 
-    return "".join(corpus_parts)
+    # Fix: Use double newline to separate pages clearly
+    return "\n\n".join(corpus_parts)
